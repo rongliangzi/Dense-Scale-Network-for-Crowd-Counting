@@ -85,7 +85,7 @@ def main():
     optimizer = torch.optim.Adam(dsnet.parameters(), lr=5e-6, weight_decay=5e-4)
     criterion = nn.MSELoss()
     best_mae, _  = val(dsnet, test_loader)
-    logger = getLogger('logs/dsnet_SGD.txt')
+    logger = getLogger('logs/dsnet_Adam.txt')
     for epoch in range(epochs):
         train_loss = 0.0
         dsnet.train()

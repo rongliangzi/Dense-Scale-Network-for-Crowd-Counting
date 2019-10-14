@@ -29,6 +29,7 @@ class DenseScaleNet(nn.Module):
         self.DDCB2 = DDCB(512)
         self.DDCB3 = DDCB(512)
         self.output_layers = nn.Sequential(nn.Conv2d(512, 128, 3, padding=1), nn.ReLU(True), nn.Conv2d(128, 64, 3, padding=1), nn.ReLU(True), nn.Conv2d(64, 1, 1))
+        self._initialize_weights()
     def forward(self, x):
         x = self.features(x)
         x1_raw = self.DDCB1(x)

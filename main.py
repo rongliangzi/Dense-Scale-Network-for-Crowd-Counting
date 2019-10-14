@@ -3,7 +3,7 @@ import torchvision
 import torch.nn as nn
 import os
 import glob
-from modeling.model import DenseScaleNet as DSNet
+from modeling.dsnet import DenseScaleNet as DSNet
 import torchvision.transforms as transforms
 from dataset import RawDataset
 import torch.nn.functional as F
@@ -63,12 +63,7 @@ def val(model, test_loader):
     mse = mse**0.5
     return float(mae), float(mse)
 
-
-def main():
-    dsnet = DSNet('')
-    dsnet.cuda()
-    train_path = '/home/datamining/Datasets/CrowdCounting/shanghai/part_A_final/train_data/images/'
-    test_path = '/home/datamining/Datasets/CrowdCounting/shanghai/part_A_final/test_data/images'
+def get_loader(train_path, test_path, ratio):
     train_img_paths = []
     for img_path in glob.glob(os.path.join(train_path, '*.jpg')):
         train_img_paths.append(img_path)
@@ -76,24 +71,32 @@ def main():
     for img_path in glob.glob(os.path.join(test_path, '*.jpg')):
         test_img_paths.append(img_path)
     transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    train_loader = torch.utils.data.DataLoader(RawDataset(train_img_paths, transform, aug=True, ratio=8), shuffle=True, batch_size=1)
+    train_loader = torch.utils.data.DataLoader(RawDataset(train_img_paths, transform, aug=True, ratio=ratio), shuffle=True, batch_size=1)
     test_loader = torch.utils.data.DataLoader(RawDataset(test_img_paths, transform, ratio=1, aug=False), shuffle=False, batch_size=1)
+
+
+def main():
+    net = DSNet('')
+    net.cuda()
+    train_path = '/home/datamining/Datasets/CrowdCounting/shanghai/part_A_final/train_data/images/'
+    test_path = '/home/datamining/Datasets/CrowdCounting/shanghai/part_A_final/test_data/images'
     
-    save_path = "/home/datamining/Models/CrowdCounting/DenseScaleNet.pth"
+    train_loader, test_loader = get_loader(train_path, test_path, 8)
+    save_path = "/home/datamining/Models/CrowdCounting/DenseScaleNet_sha_1e-5.pth"
     epochs = 500
     
-    optimizer = torch.optim.Adam(dsnet.parameters(), lr=5e-6, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-5, weight_decay=5e-4)
     criterion = nn.MSELoss()
-    best_mae, _  = val(dsnet, test_loader)
-    logger = getLogger('logs/dsnet_Adam.txt')
+    best_mae, _  = val(net, test_loader)
+    logger = getLogger('logs/dsnet_sha_Adam_1e-5.txt')
     for epoch in range(epochs):
         train_loss = 0.0
-        dsnet.train()
+        net.train()
         for img, target, count in train_loader:
             optimizer.zero_grad()
             img = img.cuda()
             target = target.cuda()
-            output = dsnet(img)
+            output = net(img)
             
             Le_Loss = criterion(output, target)
             Lc_Loss = cal_lc_loss(output, target)
@@ -102,12 +105,12 @@ def main():
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
-        mae, mse = val(dsnet, test_loader)
+        mae, mse = val(net, test_loader)
         
         logger.info('Epoch {}/{} Loss:{:.3f}, MAE:{:.2f}, MSE:{:.2f}, Best MAE:{:.2f}'.format(epoch+1, epochs, train_loss/len(train_loader), mae, mse, best_mae))
         if mae < best_mae:
             best_mae = mae
-            torch.save(dsnet.state_dict(), save_path)
+            torch.save(net.state_dict(), save_path)
 
 
 if __name__ == '__main__':

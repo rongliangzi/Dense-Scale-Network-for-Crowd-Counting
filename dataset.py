@@ -8,7 +8,7 @@ import random
 from skimage import exposure, img_as_float
 
 
-def load_data(img_path, ratio, aug):
+def load_data(img_path, ratio, aug, index):
     gt_path = img_path.replace('.jpg', '.h5').replace('images', 'ground_truth')
     img = Image.open(img_path).convert('RGB')
     gt_file = h5py.File(gt_path)
@@ -22,7 +22,12 @@ def load_data(img_path, ratio, aug):
             dy = int(random.randint(0,1) * crop_size[1])
         else:
             # 5 random patches
+            # set seed to ensure for each image the random patches are certain
+            # if not set, the crop will be online which means the patches change every time loading, leading to a dynamic training set.
+            patch_id = random.randint(0, 4)
+            random.seed(index + patch_id * 0.1)
             dx = int(random.random() * crop_size[0])
+            random.seed(index + 0.5 + patch_id * 0.1)
             dy = int(random.random() * crop_size[1])
         # crop
         img = img.crop((dx, dy, crop_size[0]+dx, crop_size[1]+dy))
@@ -57,7 +62,7 @@ class RawDataset(Dataset):
         self.ratio = ratio
         self.transform = transform
     def __getitem__(self, index):
-        img, target, count = load_data(self.root[index], self.ratio, self.aug)
+        img, target, count = load_data(self.root[index], self.ratio, self.aug, index)
         if self.transform:
             img = self.transform(img)
         return img, target, count

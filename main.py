@@ -78,11 +78,11 @@ def get_loader(train_path, test_path, ratio):
 def main():
     net = DSNet('')
     net.cuda()
-    train_path = '/home/datamining/Datasets/CrowdCounting/shanghai/part_A_final/train_data/images/'
-    test_path = '/home/datamining/Datasets/CrowdCounting/shanghai/part_A_final/test_data/images'
+    train_path = 'your_path'
+    test_path = 'your_path'
     
     train_loader, test_loader = get_loader(train_path, test_path, 8)
-    save_path = "/home/datamining/Models/CrowdCounting/DenseScaleNet_sha_1e-5.pth"
+    save_path = "your_save_path"
     epochs = 500
     
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-5, weight_decay=5e-4)
@@ -95,7 +95,7 @@ def main():
         for img, target, count in train_loader:
             optimizer.zero_grad()
             img = img.cuda()
-            target = target.cuda()
+            target = target.unsqueeze(1).cuda()
             output = net(img)
             
             Le_Loss = criterion(output, target)

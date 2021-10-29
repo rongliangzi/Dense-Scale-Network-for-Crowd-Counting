@@ -13,16 +13,16 @@ warnings.filterwarnings("ignore")
 
 
 def cal_lc_loss(output, target, sizes=(1,2,4)):
-    criterion_L1 = nn.L1Loss()
+    criterion_L1 = nn.L1Loss(reduction='sum')
     Lc_loss = None
     for s in sizes:
         pool = nn.AdaptiveAvgPool2d(s)
         est = pool(output)
         gt = pool(target)
         if Lc_loss:
-            Lc_loss += criterion_L1(est, gt)
+            Lc_loss += criterion_L1(est, gt) / s**2
         else:
-            Lc_loss = criterion_L1(est, gt)
+            Lc_loss = criterion_L1(est, gt) / s**2
     return Lc_loss
 
 
@@ -63,32 +63,59 @@ def val(model, test_loader):
     mse = mse**0.5
     return float(mae), float(mse)
 
-def get_loader(train_path, test_path, ratio):
+def get_loader(train_path, test_path, ratio, kernel_path):
     train_img_paths = []
     for img_path in glob.glob(os.path.join(train_path, '*.jpg')):
         train_img_paths.append(img_path)
     test_img_paths = []
     for img_path in glob.glob(os.path.join(test_path, '*.jpg')):
         test_img_paths.append(img_path)
+    # ! ToTensor -> range(0,1)
     transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    train_loader = torch.utils.data.DataLoader(RawDataset(train_img_paths, transform, aug=True, ratio=ratio), shuffle=True, batch_size=1)
-    test_loader = torch.utils.data.DataLoader(RawDataset(test_img_paths, transform, ratio=1, aug=False), shuffle=False, batch_size=1)
+    
+    train_loader = torch.utils.data.DataLoader(
+        RawDataset(train_img_paths, transform, aug=True, ratio=ratio, kernel_path=kernel_path),
+        shuffle=True, batch_size=1, num_workers=4)
+    # ratio 1 for val, gt_map is not used
+    test_loader = torch.utils.data.DataLoader(
+        RawDataset(test_img_paths, transform, ratio=1, aug=False, kernel_path=kernel_path), 
+        shuffle=False, batch_size=1, num_workers=4)
+    return train_loader, test_loader
 
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def main():
     net = DSNet('')
+    print('%s trainable params'%count_parameters(net))
     net.cuda()
-    train_path = 'your_path'
-    test_path = 'your_path'
+
+
+
+     # For shg A
+    train_path = '...'
+    test_path =  '...'
+    kernel_path = 'maps_adaptive_kernel'
+    lbda = 1000
     
-    train_loader, test_loader = get_loader(train_path, test_path, 8)
-    save_path = "your_save_path"
+    ratio = 8 # density map scaling
+    
+    train_loader, test_loader = get_loader(train_path, test_path, ratio, kernel_path)
+    save_path = './saved_models/dsnet_shtechA.pth'
+
+
     epochs = 500
+    lr=1e-6
+    weight_decay=5e-4
     
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-5, weight_decay=5e-4)
+    
+    
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=lr, weight_decay=weight_decay)
     criterion = nn.MSELoss()
-    best_mae, _  = val(net, test_loader)
-    logger = getLogger('logs/dsnet_sha_Adam_1e-5.txt')
+    #best_mae, _  = val(net, test_loader)
+    best_mae = 167.99
+    logger = getLogger('logs/dsnet_sha_Adam_1e-6.txt')
     for epoch in range(epochs):
         train_loss = 0.0
         net.train()
@@ -97,10 +124,9 @@ def main():
             img = img.cuda()
             target = target.unsqueeze(1).cuda()
             output = net(img)
-            
             Le_Loss = criterion(output, target)
             Lc_Loss = cal_lc_loss(output, target)
-            loss = Le_Loss + 1000 * Lc_Loss
+            loss = Le_Loss + lbda * Lc_Loss
             
             loss.backward()
             optimizer.step()

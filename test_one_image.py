@@ -36,7 +36,7 @@ def preprocess_image(cv2im):
     return im_as_var
 
     
-def img_test(pretrained_model, img_path=):
+def img_test(pretrained_model, img_path):
     img = cv2.imread(img_path)
     img = preprocess_image(img)
     if torch.cuda.is_available():

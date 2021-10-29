@@ -33,8 +33,8 @@ python test_dataset.py --gpu 0 --model_path pretrained_model_path --test_img_dir
 
 Dataset|MAE|MSE
 -|-|-
-sha|89.76|142.23
-shb|to be done|tbd
+sha|69.35|104.4
+shb|8.81|15.5
 qrnf|tbd|tbd
 
 Anyone interested in implementing crowd counting models is welcomed to contact me.

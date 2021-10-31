@@ -8,8 +8,8 @@ import random
 from skimage import exposure, img_as_float
 
 
-def load_data(img_path, ratio, aug, index):
-    gt_path = img_path.replace('.jpg', '.h5').replace('images', 'ground_truth')
+def load_data(img_path, ratio, aug, index, kernel_path='maps_adaptive_kernel'):
+    gt_path = img_path.replace('.jpg', '.h5').replace('images', kernel_path)
     img = Image.open(img_path).convert('RGB')
     gt_file = h5py.File(gt_path)
     target = np.asarray(gt_file['density'])
@@ -47,6 +47,9 @@ def load_data(img_path, ratio, aug, index):
             gamma_img = gamma_img * 255
             gamma_img = np.uint8(gamma_img)
             img = Image.fromarray(gamma_img)
+        # grayscale 
+        if random.random() > 0.9:
+            img = img.convert('L').convert('RGB') # convert to grayscale on 3 channels
     count = target.sum()
     if ratio>1:
         target = cv2.resize(target, (int(target.shape[1]/ratio),int(target.shape[0]/ratio)), interpolation=cv2.INTER_CUBIC) * (ratio**2)
@@ -55,14 +58,15 @@ def load_data(img_path, ratio, aug, index):
 
 
 class RawDataset(Dataset):
-    def __init__(self, root, transform, ratio=8, aug=False):
+    def __init__(self, root, transform, ratio=8, aug=False, kernel_path='maps_adaptive_kernel'):
         self.nsamples = len(root)
         self.aug = aug
         self.root = root
         self.ratio = ratio
         self.transform = transform
+        self.kernel_path = kernel_path
     def __getitem__(self, index):
-        img, target, count = load_data(self.root[index], self.ratio, self.aug, index)
+        img, target, count = load_data(self.root[index], self.ratio, self.aug, index, self.kernel_path)
         if self.transform:
             img = self.transform(img)
         return img, target, count

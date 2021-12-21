@@ -52,8 +52,10 @@ def load_data(img_path, ratio, aug, index, kernel_path='maps_adaptive_kernel'):
             img = img.convert('L').convert('RGB') # convert to grayscale on 3 channels
     count = target.sum()
     if ratio>1:
-        target = cv2.resize(target, (int(target.shape[1]/ratio),int(target.shape[0]/ratio)), interpolation=cv2.INTER_CUBIC) * (ratio**2)
-    
+        ratio_rounded = int(target.shape[0]) * int(target.shape[1]) / (int(target.shape[1] / ratio) * int(target.shape[0] / ratio))
+        # INTER_AREA interpolation leads to the smallest error after resizing the target
+        target = cv2.resize(target, (int(target.shape[1]/ratio),int(target.shape[0]/ratio)), interpolation=cv2.INTER_AREA) * ratio_rounded
+        
     return img, target, count
 
 
